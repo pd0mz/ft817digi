@@ -19,3 +19,15 @@ Features
 
   * 9600 baud CAT interface, for displaying device information
 
+Requirements
+============
+
+We are using Debian 6 for development, but what you basically need to
+compile the project is:
+
+  * GNU `Make <http://www.gnu.org/s/make/>`_
+
+  * AVRGCC (`AVR32 GNU Toolchain <http://avrfreaks.net/AVRGCC/>`_)
+
+  * AVRDUDE (`AVR Downloder/UploaDEr <http://www.nongnu.org/avrdude/>`_)
+
