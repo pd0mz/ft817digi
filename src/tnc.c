@@ -55,83 +55,85 @@ void
 tnc_init(unsigned char port) {
     tnc_on = 0;
     tnc_tx = 0;
-
-    // hardware USART0 (MEGA or Due)
-    // timer value of 19.2kbps serial output to match bootloader
-    UBRR0H = 0;
-    UBRR0L = 103;
-    UCSR0A |= (1<<U2X0);
-    UCSR0B |= (1<<TXEN0) | (1<<RXEN0);
-    UCSR0C |= (1<<UCSZ01) | (1<<UCSZ00);
-
-    UCSR0B |= (1<<RXCIE0); //enable rx interrupt
-
-    // ADC (MEGA or Due)
-    ADMUX   = (1<<REFS0);                    // channel0, ref to external input (Aref)
-    ADMUX  |= (1<<ADLAR);              // left-justified (only need 8 bits)
-    ADCSRA  = (1<<ADPS2);              // pre-scale 16
-    ADCSRA |= (1<<ADATE);              // auto-trigger (free-run)
-    ADCSRB  = 0x00;                    // free-running
-    DIDR0  |= (1<<ADC0D);              // disable digital driver on ADC0 
-    ADCSRA |= (1<<ADEN);               // enable ADC
-    ADCSRA |= (1<<ADSC);               // trigger first conversion  
-
-    // use 16-bit timer to check the ADC at 13200 Hz. 
-    // this is 11x the 1200Hz MARK freq, and 6x the 2200Hz SPACE freq.
-
-#ifdef ARD_MEGA
-    // use Timer3 as sample clock on Arduino Mega (ATmega1280)
-    // Timer1 conflicted with Arduino "delay()" function
-    TCCR3A = 0x00;
-    TCCR3B = (1<<WGM32) | (1<<CS30);
-    TCCR3C = 0x00;
-    OCR3A = T3TOP;
-    TIMSK3 = (1<<OCIE3A);                // enable compare match interrupt
-#endif
-
-#ifdef ARD_DUE
-    // use Timer1 on Arduino Duemilanove (ATmega328P)
-    TCCR1A = 0x00;
-    TCCR1B = (1<<WGM12) | (1<<CS10);
-    TCCR1C = 0x00;
-    OCR1A = T3TOP;  //set timer trigger frequency 
-    TIMSK1 = (1<<OCIE1A);
-    // use timer2 for a symbol (bit) timer 
-    TCCR2A = 0;
-    //  Initialize the 8-bit Timer2 to clock at 1200hz
-    TCCR2B = 0x04;                          // Timer2 clock prescale of 
-    // enable overflow interrupt(do this later....
-    //TIMSK2 = 1<<TOIE2; //TODO
-    // enable overflow interrupt flag to trigger on overflow
-    TIFR2 = (1<<TOV2);
-#endif
-
-    // use blinky on "pin 13" as DCD light, use "pin 12" as sample clock heartbeat
-    // the port/bit designation for these Arduino pins varies with the chip used
-    // see the chip-specific DEFINEs above for details
-    //DDRB = 0x3F;  
-
-    //set a debug pin 
-    DDRD = 0x04;
-
-    // pause to settle
-    _delay_ms( 1000 );
-
-    // announce ourselves
-    // TODO: make this a status packet? :) 
-    send_serial_str("FT817plus TNC ready.\n\n\n");
-
-    // enable interrupts
-    sei();
-
-    // pause again for ADC bias to settle
-    _delay_ms( 1000 );
-
 }
 
 void
 tnc_loop(void) {
-    tnc_on = 1;
+    if (!tnc_on) {
+        tnc_on = 1;
+
+        // Hardware USART0 (MEGA or Due)
+        // Timer value of 19.2kbps serial output to match bootloader
+        UBRR0H = 0;
+        UBRR0L = 103;
+        UCSR0A |= (1<<U2X0);
+        UCSR0B |= (1<<TXEN0) | (1<<RXEN0);
+        UCSR0C |= (1<<UCSZ01) | (1<<UCSZ00);
+        UCSR0B |= (1<<RXCIE0);  // enable rx interrupt
+
+        // ADC (MEGA or Due)
+        ADMUX   = (1<<REFS0);   // channel0, ref to external input (Aref)
+        ADMUX  |= (1<<ADLAR);   // left-justified (only need 8 bits)
+        ADCSRA  = (1<<ADPS2);   // pre-scale 16
+        ADCSRA |= (1<<ADATE);   // auto-trigger (free-run)
+        ADCSRB  = 0x00;         // free-running
+        DIDR0  |= (1<<ADC0D);   // disable digital driver on ADC0 
+        ADCSRA |= (1<<ADEN);    // enable ADC
+        ADCSRA |= (1<<ADSC);    // trigger first conversion  
+
+        // Use 16-bit timer to check the ADC at 13200 Hz. 
+        // This is 11x the 1200Hz MARK freq, and 6x the 2200Hz SPACE freq.
+
+#ifdef __AVR_ATmega1280__
+        // Use Timer3 as sample clock on Arduino Mega (ATmega1280)
+        // Timer1 conflicted with Arduino "delay()" function
+        TCCR3A = 0x00;
+        TCCR3B = (1<<WGM32) | (1<<CS30);
+        TCCR3C = 0x00;
+        OCR3A = TNC_T3TOP;
+        TIMSK3 = (1<<OCIE3A);   // enable compare match interrupt
+#endif
+
+#ifdef __AVR_ATmega328__
+        // Use Timer1 on Arduino Duemilanove (ATmega328P)
+        TCCR1A = 0x00;
+        TCCR1B = (1<<WGM12) | (1<<CS10);
+        TCCR1C = 0x00;
+        OCR1A = TNC_T3TOP;      // set timer trigger frequency 
+        TIMSK1 = (1<<OCIE1A);
+        // Use timer2 for a symbol (bit) timer 
+        TCCR2A = 0;
+        // Initialize the 8-bit Timer2 to clock at 1200hz
+        TCCR2B = 0x04;          // Timer2 clock prescale of 
+        // Enable overflow interrupt(do this later....
+        //TIMSK2 = 1<<TOIE2;    //TODO
+        // Enable overflow interrupt flag to trigger on overflow
+        TIFR2 = (1<<TOV2);
+#endif
+
+        // Use blinky on "pin 13" as DCD light, use "pin 12" as sample clock
+        // heartbeat the port/bit designation for these Arduino pins varies
+        // with the chip used see the chip-specific DEFINEs above for details
+        //DDRB = 0x3F;  
+
+        // Set a debug pin 
+        DDRD = 0x04;
+
+        // pause to settle
+        _delay_ms( 1000 );
+
+        // Announce ourselves
+        // TODO: make this a status packet? :) 
+        tnc_send_serial("FT817plus TNC ready.\n\n\n");
+
+        // Enable interrupts
+        sei();
+
+        // pause again for ADC bias to settle
+        _delay_ms( 1000 );
+
+    }
+
     tnc_process_serial();
 }
 
