@@ -53,7 +53,14 @@ static unsigned short tnc_crc;      // Cyclic redundancy check
 
 void 
 tnc_init(unsigned char port) {
+    tnc_on = 0;
     tnc_tx = 0;
+}
+
+void
+tnc_loop(void) {
+    tnc_on = 1;
+    tnc_process_serial();
 }
 
 // Timer1 interrupt
@@ -102,7 +109,8 @@ ISR(TIMER1_COMPA_vect) {
         // Add this result to get the sum of the last 7 multipliers (1st LPF)
         tnc_mult_sum += tnc_mult_rb[tnc_rb_pos];
 
-        // Force a definitive answer with a hysteresis zone around zero (2nd LPF)
+        // Force a definitive answer with a hysteresis zone around zero (2nd
+        // LPF)
         if      (tnc_mult_sum >=  100) { tnc_symbol_curr = AX25_SPACE; }
         else if (tnc_mult_sum <= -100) { tnc_symbol_curr = AX25_MARK; }
         else                           { ; } // Inconclusive
@@ -129,19 +137,21 @@ ISR(TIMER1_COMPA_vect) {
                 tnc_symbol_last = tnc_symbol_curr;
                 tnc_change_counter = 0;
 
-                // Ideally, frequency transitions will occur on a since-last-change
-                // count that is an exact bit duration at the 1200 Hz signaling
-                // rate - that is, an exact multiple of 11 samples (11 samples = 1
-                // bit, 22 = 2 bits, 33 = 3, etc). To give some extra settle time,
-                // we don't attempt to read the symbol value at the exact moment of
-                // transition; instead, we give it 4 extra beats. Thus as bit_timer
-                // is counting down to the next symbol check, its value should
-                // ideally be 4 when the symbol change actually takes place. If the
-                // symbol change is a little early or late, we can tweak the
-                // bit_timer to tolerate some drift and still keep sync.  By those
-                // rules, an SLC of 4 is perfect, 2 through 6 are fine and  need no
-                // adjustment, 7,8 and 0,1 need adjustment, 9,10 are timing errors
-                // - we can accept a certain number of those before aborting.
+                // Ideally, frequency transitions will occur on a
+                // since-last-change count that is an exact bit duration at the
+                // 1200 Hz signaling rate - that is, an exact multiple of 11
+                // samples (11 samples = 1 bit, 22 = 2 bits, 33 = 3, etc). To
+                // give some extra settle time, we don't attempt to read the
+                // symbol value at the exact moment of transition; instead, we
+                // give it 4 extra beats. Thus as bit_timer is counting down to
+                // the next symbol check, its value should ideally be 4 when
+                // the symbol change actually takes place. If the symbol change
+                // is a little early or late, we can tweak the bit_timer to
+                // tolerate some drift and still keep sync.  By those rules, an
+                // SLC of 4 is perfect, 2 through 6 are fine and  need no
+                // adjustment, 7,8 and 0,1 need adjustment, 9,10 are timing
+                // errors - we can accept a certain number of those before
+                // aborting.
                 if (tnc_bit_timer == 7 || tnc_bit_timer == 8) {
                     // Other station was slow, nudge timer
                     --tnc_bit_timer;
@@ -220,20 +230,20 @@ ISR(TIMER1_COMPA_vect) {
             --tnc_these_bits;
         }
 
-        // Determine incoming bit values based on how many bit times have elapsed.
-        // whatever the count was, the last bit involved a symbol change, so must
-        // be zero.  all other elapsed bits must be ones. AX.25 is transmitted LSB
-        // first, so in adding bits to the incoming bit queue, we add them
-        // right-to-left (ie, new bits go on the left). this lets us ready incoming
-        // bytes directly from the lowest eight bits of the bit queue (once we have
-        // that many bits).
+        // Determine incoming bit values based on how many bit times have
+        // elapsed.  whatever the count was, the last bit involved a symbol
+        // change, so must be zero.  all other elapsed bits must be ones. AX.25
+        // is transmitted LSB first, so in adding bits to the incoming bit
+        // queue, we add them right-to-left (ie, new bits go on the left). this
+        // lets us ready incoming bytes directly from the lowest eight bits of
+        // the bit queue (once we have that many bits).
 
-        // the act of adding bits to the queue is in two parts - (a) OR in any one
-        // bits, shifting them to the left as required prior to the OR operation,
-        // and (b) update the number of bits stored in the queue. with zero bits,
-        // there's nothing to OR into place, so they are taken care of when we
-        // update the queue length, and when we shift the queue to the right as
-        // bytes are popped off the end later on.
+        // the act of adding bits to the queue is in two parts - (a) OR in any
+        // one bits, shifting them to the left as required prior to the OR
+        // operation, and (b) update the number of bits stored in the queue.
+        // with zero bits, there's nothing to OR into place, so they are taken
+        // care of when we update the queue length, and when we shift the queue
+        // to the right as bytes are popped off the end later on.
         switch (tnc_these_bits) {
             case 1: break;                              // b00000
             case 2: tnc_bitq |= (0x01 << tnc_bitqlen);  // b00001
@@ -250,14 +260,14 @@ ISR(TIMER1_COMPA_vect) {
                     break;
             // Special case, only used for HDLC bytes
             case 7: if (tnc_bitqlen == 1 && tnc_bitq == 0) {
-                        // Only one bit pending and it's a zero, this is the ideal
-                        // situation to receive a "seven" to complete the HDLC
-                        // byte
+                        // Only one bit pending and it's a zero, this is the
+                        // ideal situation to receive a "seven" to complete the
+                        // HDLC byte
                         tnc_bitq = 0x7e;
                         tnc_bitqlen = 8;
                     } else if (tnc_bitqlen < 4) {
-                        // 0 to 3 bits still pending and it's a zero, but no the
-                        // recommended single-zero; let's dump what ever is
+                        // 0 to 3 bits still pending and it's a zero, but no
+                        // the recommended single-zero; let's dump what ever is
                         // pending and close the frame
                         tnc_bitq = 0x7e;
                         tnc_bitqlen = 8;
@@ -309,9 +319,9 @@ ISR(TIMER1_COMPA_vect) {
                     tnc_pop_bits = 8;
                 } else if (tnc_msg_pos < TNC_MIN_PACKET_LEN) {
                     // We are already in a frame, but have not rec'd any/enough
-                    // data yet.  AX.25 preamble is sometimes a series of HDLCs in
-                    // a row, so let's assume that's what this is, and just drop
-                    // this byte.
+                    // data yet.  AX.25 preamble is sometimes a series of HDLCs
+                    // in a row, so let's assume that's what this is, and just
+                    // drop this byte.
                     tnc_pop_bits = 8;
                 } else {
                     // In a frame with some data, so this HDLC is probably a
@@ -337,13 +347,14 @@ ISR(TIMER1_COMPA_vect) {
                     //DCD_ON;
                 }
             } else {
-                // Not already in a frame, and this byte is not a frame marker.  It
-                // is possible (likely) that when an HDLC byte arrives, its 8 bits
-                // will not align perfectly with the 8 we just checked. So instead
-                // of dropping all 8 of these random bits, let's just drop one, and
-                // re-check the rest again later.  This increases our chances of
-                // seeing the HDLC byte in the incoming bitstream amid noise (esp.
-                // if we're running open squelch).
+                // Not already in a frame, and this byte is not a frame marker.
+                // It is possible (likely) that when an HDLC byte arrives, its
+                // 8 bits will not align perfectly with the 8 we just checked.
+                // So instead of dropping all 8 of these random bits, let's
+                // just drop one, and re-check the rest again later.  This
+                // increases our chances of seeing the HDLC byte in the
+                // incoming bitstream amid noise (esp.  if we're running open
+                // squelch).
                 tnc_pop_bits = 1;
             }
 
@@ -376,7 +387,8 @@ SIGNAL(USART_RX_vect) {
  * Process serial bus
  */
 
-inline void tnc_process_serial(void) {
+void
+tnc_process_serial(void) {
     if (tnc_on == 0) return;
 
     PORTD ^= 0x04;
@@ -389,7 +401,8 @@ inline void tnc_process_serial(void) {
     return;
 }
 
-inline void tnc_handle_message(unsigned char data) {
+inline void
+tnc_handle_message(unsigned char data) {
     if (tnc_data_prev == 0xc0) {
         if (data == 0x00) {
             tnc_transmit();
@@ -415,18 +428,21 @@ inline void tnc_handle_message(unsigned char data) {
     tnc_data_prev = data;
 }
 
-inline void tnc_rts(void) {
+inline void
+tnc_rts(void) {
     while (!TNC_READY_TO_SEND);
 }
 
-void tnc_send_serial(const char *data) {
+void
+tnc_send_serial(const char *data) {
     while (*data != '\0') {
         tnc_rts();
         UDR0 = *data++;
     }
 }
 
-void tnc_ax25_decode(void) {
+void
+tnc_ax25_decode(void) {
     // State:
     //  0. started
     //  1. header
@@ -495,7 +511,8 @@ void tnc_ax25_decode(void) {
 }
 
 // Get ready to rumble
-void tnc_transmit(void) {
+void
+tnc_transmit(void) {
     tnc_sine_index = 0;
     tnc_txtone = TNC_MARK;
     // Enable overflow interrupt
@@ -508,7 +525,8 @@ void tnc_transmit(void) {
     return;
 }
 
-void tnc_receive(void) {
+void
+tnc_receive(void) {
     tnc_ax25_send_footer();
     tnc_tx = 0;
 
@@ -520,14 +538,16 @@ void tnc_receive(void) {
     return;
 }
 
-void tnc_delay(unsigned char timeout) {
+void
+tnc_delay(unsigned char timeout) {
     tnc_main_delay = 1;
     TCNT2 = 0xff - timeout;              // Setup timer2 to trigger at delay
     while (tnc_main_delay);
     return;
 }
 
-void tnc_ax25_crcbit(int lsb) {
+void
+tnc_ax25_crcbit(int lsb) {
     static unsigned short xor;
 
     xor = tnc_crc ^ lsb;
@@ -538,7 +558,8 @@ void tnc_ax25_crcbit(int lsb) {
     return;
 }
 
-void tnc_ax25_send(unsigned char byte) {
+void
+tnc_ax25_send(unsigned char byte) {
     static char j, bitbyte;
     static int bitzero;
     static unsigned char ones;
@@ -569,7 +590,8 @@ void tnc_ax25_send(unsigned char byte) {
     return;
 }
 
-void tnc_ax25_send_header(void) {
+void 
+tnc_ax25_send_header(void) {
     static unsigned char delay;
     tnc_crc = 0xffff;
     for (delay = 0; delay < TNC_TX_DELAY; ++delay) {
@@ -578,7 +600,8 @@ void tnc_ax25_send_header(void) {
     return;
 }
 
-void tnc_ax25_send_footer(void) {
+void 
+tnc_ax25_send_footer(void) {
     tnc_ax25_send(tnc_crc ^ 0xff);        // Send LSB of the CRC
     tnc_ax25_send((tnc_crc >> 8) ^ 0xff); // Send MSB of the CRC
     tnc_ax25_send(0x73);                  // Send end of packet flag
