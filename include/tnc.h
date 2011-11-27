@@ -28,6 +28,7 @@
 #define TNC_BUF_SIZE        (200)
 
 // Function prototypes
+void        tnc_process_serial(void);
 inline void tnc_handle_message(unsigned char data);
 void        tnc_send_serial(const char *data);
 void        tnc_ax25_decode(void);
