@@ -2,6 +2,7 @@
 #define __PORT_H__
 
 #include <avr/pgmspace.h>
+#include <avr/io.h>
 
 #define NOT_A_PIN   0
 #define NOT_A_PORT  0
