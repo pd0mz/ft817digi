@@ -5,4 +5,7 @@
 #error "Please define PIN_BUTTONS to indicate what ADC port the buttons use"
 #endif
 
+// Function prototypes
+void menu_poll(unsigned char);
+
 #endif

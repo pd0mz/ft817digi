@@ -10,9 +10,12 @@ enum {
     BUTTON_SELECT
 };
 
-int _menu_adc_val[5] = {
+unsigned int menu_adc_val[5] = {
     30, 150, 360, 535, 760
 };
+
+unsigned char menu_active;          // Is the menu visible?
+
 
 void
 menu_init() {
@@ -21,12 +24,12 @@ menu_init() {
 }
 
 unsigned int
-menu_getKey(void) {
+menu_get_key(void) {
     int adc = adcRead(PIN_BUTTONS);
     int i, key = -1;
 
     for (i = 0; i < NUM_KEYS; ++i) {
-        if (adc < _menu_adc_val[i]) {
+        if (adc < menu_adc_val[i]) {
             key = i;
             break;
         }
@@ -38,3 +41,14 @@ menu_getKey(void) {
     
     return key;
 } 
+
+void
+menu_poll(unsigned char state) {
+    int key = menu_get_key();
+    if (menu_active == 0) {
+        if (key == BUTTON_SELECT) {
+            menu_active = 1;
+        }
+    }
+}
+    

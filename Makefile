@@ -25,7 +25,7 @@ ${PROG}.hex: ${PROG}.elf
 	$(OBJCOPY) -O $(BIN_FORMAT) -R .eeprom $(BUILD)/$< $(BUILD)/$@
 
 ${PROG}.elf: $(OBJS)
-	$(CC) -o $(BUILD)/$@ $(OBJS)
+	$(CC) -o $(BUILD)/$@ $(CFLAGS) $(OBJS)
 
 %.elf : %.c
 	$(CC) -o $@ -c $< $(CFLAGS) $(INCLUDE)
