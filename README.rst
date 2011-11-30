@@ -31,3 +31,34 @@ compile the project is:
 
   * AVRDUDE (`AVR Downloder/UploaDEr <http://www.nongnu.org/avrdude/>`_)
 
+Components
+==========
+
+For the LCD circuit:
+
+  * HD44780 LCD 2x16 characters
+
+For the menu buttons:
+
+  * TODO
+
+For the TNC modulator circuit:
+
+  * R1 8.2k
+  * R2 3.9k
+  * R3 2k
+  * R4 1k
+  * R5 10k var.
+  * C1 100 pF
+  * R6 4.7k
+  * R7 2k
+  * Q1 2N3904
+  * R8 4.7k
+  * D1 LED
+
+For the TNC demodulator circuit:
+
+  * C1 100 pF
+  * R1 10k
+  * R2 3.6k
+  * C2 NA
